@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Калькулятор цены ворот</title>
+<style>
+:root{--bg:#f4f3ef;--card:#fff;--ink:#1d1d1b;--mut:#6b6a66;--line:#dcdad3;--acc:#2b2b2b;--accink:#fff;--hi:#b9791f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#222221;--ink:#f1f0ec;--mut:#a5a39c;--line:#3a3935;--acc:#f1f0ec;--accink:#161615;--hi:#e0a64d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--card:#222221;--ink:#f1f0ec;--mut:#a5a39c;--line:#3a3935;--acc:#f1f0ec;--accink:#161615;--hi:#e0a64d;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.w{max-width:520px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 18px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--mut);margin:0 0 6px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=number]{width:100%;font:inherit;font-size:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.ser{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ser button{font:inherit;font-size:14px;padding:10px 4px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer}
+.ser button small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+.ser button.on{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+.ser button.on small{color:var(--accink);opacity:.75}
+input[type=range]{width:100%;margin:10px 0 2px;accent-color:var(--hi)}
+.rng{display:flex;justify-content:space-between;color:var(--mut);font-size:12px}
+.res div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.res div:last-child{border:0}
+.tot{font-size:24px;font-weight:700;color:var(--hi)}
+.note{color:var(--mut);font-size:12px;margin-top:8px}
+.btn{width:100%;font:inherit;font-weight:600;padding:14px;border:0;border-radius:12px;background:var(--acc);color:var(--accink);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Калькулятор цены ворот</h1>
+  <p class="sub">Введите размеры и выберите серию. Цена ориентировочная.</p>
+
+  <div class="card">
+    <div class="row">
+      <div><label for="w">Ширина, см</label><input id="w" type="number" inputmode="decimal" value="400"></div>
+      <div><label for="h">Высота, см</label><input id="h" type="number" inputmode="decimal" value="250"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Серия</label>
+    <div class="ser" id="ser"></div>
+    <p class="note" id="desc" style="margin:10px 0 0"></p>
+    <input type="range" id="p" step="500">
+    <div class="rng"><span id="pmin"></span><b id="pval" style="color:var(--ink);font-size:15px"></b><span id="pmax"></span></div>
+  </div>
+
+  <div class="card res">
+    <div><span>Площадь</span><b id="area"></b></div>
+    <div><span>Цена за м²</span><b id="pm"></b></div>
+    <div><span>Общая сумма</span><span class="tot" id="sum"></span></div>
+    <div><span>Аванс 70%</span><b id="adv"></b></div>
+    <div><span>Остаток</span><b id="rest"></b></div>
+    <div><span>Диапазон по серии</span><b id="rng"></b></div>
+  </div>
+
+  <button class="btn" id="copy">Скопировать расчёт</button>
+  <p class="note">Итоговая цена зависит от материалов, размера и комплектации. Точный расчёт — после замера.</p>
+</div>
+
+<script>
+const S=[
+ {n:"Эконом",min:40000,max:45000,def:42500,d:"Эконом: 40–45 тыс. тг за м²."},
+ {n:"Стандарт",min:75000,max:85000,def:80000,d:"Стандарт, обычные ворота: в среднем 80 тыс. тг за м²."},
+ {n:"Стандарт утеплённые",min:90000,max:95000,def:92500,d:"Утеплённые, двусторонние, с двойным листом: 90–95 тыс. тг за м²."},
+ {n:"VIP",min:100000,max:115000,def:107500,d:"VIP: 100–115 тыс. тг за м²."},
+ {n:"VIP утеплённые с коробкой",min:120000,max:180000,def:150000,d:"VIP двухслойные, утеплённые, с коробкой: 120–180 тыс. тг за м²."}
+];
+let cur=1,price=S[1].def;
+const $=id=>document.getElementById(id);
+const f=n=>Math.round(n).toLocaleString("ru-RU").replace(/\u00a0/g," ")+" тг";
+const ser=$("ser");
+S.forEach((s,i)=>{const b=document.createElement("button");
+ b.innerHTML=s.n.replace("Стандарт утеплённые","Стандарт утепл.").replace("VIP утеплённые с коробкой","VIP с коробкой")+"<small>"+(s.min/1000)+"–"+(s.max/1000)+"к</small>";
+ b.onclick=()=>{cur=i;price=s.def;sync()};ser.appendChild(b)});
+function sync(){
+ const s=S[cur];
+ [...ser.children].forEach((b,i)=>b.classList.toggle("on",i===cur));
+ const p=$("p");p.min=s.min;p.max=s.max;p.value=price;
+ $("pmin").textContent=f(s.min);$("pmax").textContent=f(s.max);
+ $("desc").textContent=s.d;calc();
+}
+function calc(){
+ const s=S[cur];
+ const w=parseFloat($("w").value)||0,h=parseFloat($("h").value)||0;
+ const a=w*h/10000;
+ price=parseFloat($("p").value)||s.def;
+ const sum=a*price;
+ $("area").textContent=a.toFixed(2).replace(".",",")+" м²";
+ $("pval").textContent=f(price);
+ $("pm").textContent=f(price);
+ $("sum").textContent=f(sum);
+ $("adv").textContent=f(sum*0.7);
+ $("rest").textContent=f(sum*0.3);
+ $("rng").textContent=f(a*s.min).replace(" тг","")+" – "+f(a*s.max);
+ window._t="Ворота "+w+"×"+h+" см ("+s.n+")\nПлощадь: "+a.toFixed(2)+" м²\nЦена за м²: "+f(price)+"\nСумма: "+f(sum)+"\nАванс 70%: "+f(sum*0.7);
+}
+["w","h","p"].forEach(id=>$(id).addEventListener("input",calc));
+$("copy").onclick=async()=>{
+ try{await navigator.clipboard.writeText(window._t);$("copy").textContent="Скопировано"}
+ catch(e){$("copy").textContent="Не удалось скопировать"}
+ setTimeout(()=>$("copy").textContent="Скопировать расчёт",1800);
+};
+sync();
+</script>
+</body>
+</html>
